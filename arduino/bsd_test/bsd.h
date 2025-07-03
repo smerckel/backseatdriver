@@ -27,11 +27,15 @@ public:
   uint8_t get_identifier(char* identifierString, const char* buffer, const uint8_t size);
   uint8_t get_crc(char* crcString, const char* buffer, const uint8_t size);
   uint8_t compute_crc(uint8_t *crc, const char* buffer, const uint8_t size);
-  void print();
+  void requestFile(const char* filename);
+  
+  
+  void print(const char *s);
   
 private:
   HardwareSerial& serial_;
   unsigned long baudrate_;
 };
+
 
 #endif

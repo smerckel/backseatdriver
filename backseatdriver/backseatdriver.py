@@ -2,13 +2,14 @@ import abc
 import logging
 import re
 import serial
+import base64
 
 logger = logging.getLogger(__name__)
 
 ACTIVE = 1
 STOPPED = 2
 SD = 3
-
+FI = 4
     
 class MessageParser(object):
     
@@ -46,12 +47,15 @@ class MessageParser(object):
                 result, result_dict = self.HI(s_payload)
             case 'SD':
                 result, result_dict = self.SD(s_payload)
+            case 'FI':
+                result, result_dict = self.FI(s_payload)
             case 'BY':
                 result, result_dict = self.BY(s_payload)
             case 'B':
                 result, result_dict = self.BY(s_payload)
             case _:
-                result=0, {}
+                result=0
+                result_dict = {}
         result_dict['crc'] = crc
         return result, result_dict
 
@@ -69,6 +73,19 @@ class MessageParser(object):
             result_dict[self.variable_list[int(i)]] = v
         return SD, result_dict
             
+    def FI(self, payload):
+        result_dict = {}
+        contents = base64.b64decode(payload.encode()).decode()
+        lines = contents.split('\n')
+        for line in lines:
+            k, _v =line.split(":")
+            if k == 'n_profiles':
+                v = int(_v)
+            else:
+                v = float(_v)
+            result_dict[k] = v
+        return FI, result_dict
+    
     
 class Extctl(object):
 
@@ -78,15 +95,29 @@ class Extctl(object):
         self.serial: serial.Serial = serial.Serial(device, baudrate, timeout=timeout)
         logger.debug("Serial connection setup.")
         self.message_parser = message_parser
+        self.is_filerequested = False
         
         
-        
+    def request_file(self):
+        print("requesting file")
+        command = "$FR,bsd.cfg*"
+        body = self.message_parser.match("body", command)
+        crc = self.message_parser.crc(body).upper()
+        command += crc
+        command += "\r\n"
+        print(command)
+        self.serial.write(command.encode())
+        self.is_filerequested=True
+    
     def read(self):
+        if not self.is_filerequested:
+            self.request_file()
         line = self.serial.readline()
         if line:
+            print(line)
             s = line.decode().strip()
             result, result_dict = self.message_parser.parse(s)
-            if result==SD:
+            if result==SD or result==FI:
                 print(result_dict)
 
 if __name__ == "__main__":
@@ -115,3 +146,6 @@ for i in s.encode('ascii'):
     csum ^= i
 print(hex(csum), nmea_string)
       
+import base64
+s = b"dGhyZXNob2xkOjEuMjM0Cm5fcHJvZmlsZXM6Mw=="
+s_decode = base64.b64decode(s)
