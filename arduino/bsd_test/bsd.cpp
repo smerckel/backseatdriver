@@ -13,15 +13,18 @@ void BSD::begin(const unsigned long baudrate) {
 
 void BSD::process(){
   char c;
-  int p=0;
+  uint8_t p=0;
   char buffer[BUFFERSIZE];
+  uint8_t status=0;
   
+  monitor_.println("in process");
   while (serial_.available() > 0) {
     c = serial_.read();
     buffer[p++]=c;
     if (c == '\n') {
       buffer[p] = '\0';
-      parse_buffer(buffer, p);
+      monitor_.println(buffer);
+      parse_buffer(&status, buffer, p);
       p=0;
     }
   }
@@ -120,11 +123,12 @@ void BSD::readFileData(const char* encodedString){
   Base64.decode(decodedString,
 		encodedString,
 		encodedStringLength);
-  print(decodedString);
 }
   
 
-bool BSD::parse_buffer(const char* buffer, const uint8_t size){
+uint8_t BSD::parse_buffer(uint8_t *status,
+			  const char* buffer,
+			  const uint8_t size){
   char identifierString[IDENTIFIER_STRING_SIZE];
   char crcString[CRC_STRING_SIZE];
   uint8_t crc, crc_payload;
@@ -134,20 +138,26 @@ bool BSD::parse_buffer(const char* buffer, const uint8_t size){
   errorno = get_identifier(identifierString, &p0, buffer, size);
   errorno |= get_crc(crcString, &p1, buffer, size);
   errorno |= compute_crc(&crc_payload, buffer, size);
-
   if (errorno == ERROR_NO_ERROR){
-      crc = strtol(crcString, NULL, 16);
-      if (strcmp(identifierString, "SD") == 0){}
-      else if (strcmp(identifierString, "HI") == 0){}
+    crc = strtol(crcString, NULL, 16);
+    errorno |= (uint8_t)!(crc_payload==crc);
+  }
+  if (errorno == ERROR_NO_ERROR){
+      monitor_.println(identifierString);
+      if (strcmp(identifierString, "SD") == 0){
+	
+      }
+      else if (strcmp(identifierString, "HI") == 0){
+	*status=ACTIVE;
+      }
       else if (strcmp(identifierString, "FI") == 0){
 	snprintf(buffer, p1-p0, "%s", buffer+p0);
+	monitor_.println("buffer");
+	monitor_.println(buffer);
 	readFileData(buffer);
       }
   }
-  else{
-    crc=0xff;
-  }
-  return (crc_payload == crc);
+  return errorno;
 }
 
 void BSD::requestFile(const char* filename){
@@ -165,35 +175,7 @@ void BSD::requestFile(const char* filename){
   compute_crc(&crc, command, size+5);
   sprintf(command + size + 5, "%02x\r\n\0", crc);
   serial_.write(command);
+  monitor_.println("File requested with command:");
+  monitor_.println(command);
 }
 
-void BSD::print(const char* s) {
-  char command[70] = "$TXT, (debug)";
-  uint8_t i=0;
-  uint8_t crc, size;
-
-  size = strlen(s);
-  for (i=0; i<size; ++i){
-    command[i+13] = s[i];
-  }
-  // Add the trailing * 
-  command[size+13] = '*';
-  command[size+14] = '\0';
-  compute_crc(&crc, command, size+14);
-  sprintf(command + size + 14, "%02x\r\n\0", crc);
-  serial_.write(command);
-}
-
-void BSD::print(const uint8_t i) {
-  char command[70] = "$TXT, (debug)";
-  uint8_t crc, size;
-
-  sprintf(command+13, "%d", i);
-  size = strlen(command);
-  // Add the trailing * 
-  command[size] = '*';
-  command[size+1] = '\0';
-  compute_crc(&crc, command, size+1);
-  sprintf(command + size + 1, "%02x\r\n\0", crc);
-  serial_.write(command);
-}

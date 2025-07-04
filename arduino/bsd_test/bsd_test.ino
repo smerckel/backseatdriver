@@ -1,15 +1,19 @@
 #include "bsd.h"
+#include <SoftwareSerial.h>
 
-BSD bsd;
+SoftwareSerial monitor = SoftwareSerial(9, 10);
+
+BSD bsd(monitor);
 
 void setup(){
+  monitor.begin(9600);
+  monitor.println("bsd_test started");
   bsd.begin(9600);
-  delay(2000);
-  bsd.requestFile("bsd.cfg");
+  monitor.println("exit setup");
 }
 
 void loop(){
+  //bsd.requestFile("bsd.cfg");
   bsd.process();
-  bsd.print("done");
   delay(1000);
 }
