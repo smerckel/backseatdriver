@@ -27,9 +27,9 @@ SOCAT="/usr/bin/socat"
 progname=$(basename $0)
 
 if [ ${progname} == "serial_fwd_remote.sh" ]; then
-    ${SOCAT} -d -d ${SERIAL_DEVICE_REMOTE},raw,echo=1 TCP:${IP_LOCAL}:${TCP_PORT_LOCAL}
+    ${SOCAT} -d -d ${SERIAL_DEVICE_REMOTE},raw,echo=0 TCP:${IP_LOCAL}:${TCP_PORT_LOCAL}
 elif [ ${progname} == "serial_fwd_local.sh" ]; then
-    ${SOCAT} -d -d TCP-LISTEN:${TCP_PORT_LOCAL},fork ${SERIAL_DEVICE_LOCAL},raw,echo=1
+    ${SOCAT} -d -d TCP-LISTEN:${TCP_PORT_LOCAL},fork ${SERIAL_DEVICE_LOCAL},raw,echo=0
 else
     echo "Script has wrong name. Don't know what to do. Exiting."
     exit 1
