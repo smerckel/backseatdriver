@@ -4,11 +4,12 @@ BSD bsd;
 
 void setup(){
   bsd.begin(9600);
-  //bsd.requestFile("bsd.cfg");
+  delay(2000);
+  bsd.requestFile("bsd.cfg");
 }
 
 void loop(){
   bsd.process();
-  // bsd.print();
+  bsd.print("done");
   delay(1000);
 }

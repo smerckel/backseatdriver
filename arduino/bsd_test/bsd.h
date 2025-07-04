@@ -2,6 +2,7 @@
 #define __BSD_H__
 
 #include <Arduino.h>
+#include "Base64.h"
 
 const uint8_t ERROR_NO_ERROR = 0;
 const uint8_t ERROR_NO_DOLLAR_SIGN = 1 << 1;
@@ -22,15 +23,33 @@ public:
   }
 
   void begin(const unsigned long baudrate=0);
+  
   void process();
-  bool parse_buffer(const char* buffer, const uint8_t size);
-  uint8_t get_identifier(char* identifierString, const char* buffer, const uint8_t size);
-  uint8_t get_crc(char* crcString, const char* buffer, const uint8_t size);
-  uint8_t compute_crc(uint8_t *crc, const char* buffer, const uint8_t size);
+  
+  bool parse_buffer(const char* buffer,
+		    const uint8_t size);
+  
+  uint8_t get_identifier(char* identifierString,
+			 uint8_t *pPayload,
+			 const char* buffer,
+			 const uint8_t size);
+  
+  uint8_t get_crc(char* crcString,
+		  uint8_t *pPayload, 
+		  const char* buffer,
+		  const uint8_t size);
+  
+  uint8_t compute_crc(uint8_t *crc,
+		      const char* buffer,
+		      const uint8_t size);
+  
   void requestFile(const char* filename);
-  
-  
+
+
+  void readFileData(const char* buffer);
+    
   void print(const char *s);
+  void print(const uint8_t i);
   
 private:
   HardwareSerial& serial_;
