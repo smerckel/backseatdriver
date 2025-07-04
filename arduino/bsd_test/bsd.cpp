@@ -15,19 +15,23 @@ void BSD::process(){
   char c;
   uint8_t p=0;
   char buffer[BUFFERSIZE];
-  uint8_t status=0;
+  static uint8_t status=0;
   
-  monitor_.println("in process");
   while (serial_.available() > 0) {
     c = serial_.read();
     buffer[p++]=c;
     if (c == '\n') {
       buffer[p] = '\0';
-      monitor_.println(buffer);
       parse_buffer(&status, buffer, p);
       p=0;
     }
   }
+  monitor_.print(status);
+
+  if ((status & ACTIVE) && (!(status & CONFIGFILEREQUESTED))){
+    status |= CONFIGFILEREQUESTED;
+    requestConfigFile();
+  }  
 }
 
 
@@ -142,39 +146,44 @@ uint8_t BSD::parse_buffer(uint8_t *status,
     crc = strtol(crcString, NULL, 16);
     errorno |= (uint8_t)!(crc_payload==crc);
   }
+  //monitor_.print(buffer);
+  //monitor_.print(" ");
+  monitor_.println(identifierString);
+
   if (errorno == ERROR_NO_ERROR){
-      monitor_.println(identifierString);
       if (strcmp(identifierString, "SD") == 0){
-	
+	*status|=ACTIVE;
+	monitor_.println("Need to do SD.");
       }
       else if (strcmp(identifierString, "HI") == 0){
-	*status=ACTIVE;
+	*status|=ACTIVE;
       }
       else if (strcmp(identifierString, "FI") == 0){
-	snprintf(buffer, p1-p0, "%s", buffer+p0);
+	//snprintf(buffer, p1-p0, "%s", buffer+p0);
 	monitor_.println("buffer");
 	monitor_.println(buffer);
-	readFileData(buffer);
+	//readFileData(buffer);
       }
   }
   return errorno;
 }
 
-void BSD::requestFile(const char* filename){
+void BSD::requestConfigFile(){
   char command[22] = "$FR,";
   uint8_t i=0;
   uint8_t crc, size;
 
-  size = strlen(filename);
+  size = strlen(configFilename_);
   for (i=0; i<size; ++i){
-    command[i+4] = filename[i];
+    command[i+4] = configFilename_[i];
   }
   // Add the trailing * 
   command[size+4] = '*';
   command[size+5] = '\0';
   compute_crc(&crc, command, size+5);
   sprintf(command + size + 5, "%02x\r\n\0", crc);
-  serial_.write(command);
+  serial_.print(command);
+  serial_.flush();
   monitor_.println("File requested with command:");
   monitor_.println(command);
 }

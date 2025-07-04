@@ -3,7 +3,7 @@
 
 SoftwareSerial monitor = SoftwareSerial(9, 10);
 
-BSD bsd(monitor);
+BSD bsd("bsd.cfg", monitor);
 
 void setup(){
   monitor.begin(9600);

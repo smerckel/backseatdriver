@@ -149,3 +149,6 @@ print(hex(csum), nmea_string)
 import base64
 s = b"dGhyZXNob2xkOjEuMjM0Cm5fcHJvZmlsZXM6Mw=="
 s_decode = base64.b64decode(s)
+
+s = b'#some comments\ndmin:265\ndmax:365\nthreshold:1.234\nn_profiles:3'
+d_encode = base64.b64encode(s)
