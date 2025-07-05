@@ -1,19 +1,19 @@
 #include "bsd.h"
 #include <SoftwareSerial.h>
 
-SoftwareSerial monitor = SoftwareSerial(9, 10);
+SoftwareSerial bsdSerial = SoftwareSerial(9, 10);
 
-BSD bsd("bsd.cfg", monitor);
+BSD bsd("bsd.cfg", bsdSerial);
 
 void setup(){
-  monitor.begin(9600);
-  monitor.println("bsd_test started");
   bsd.begin(9600);
-  monitor.println("exit setup");
+  pinMode(13, OUTPUT);
 }
 
 void loop(){
-  //bsd.requestFile("bsd.cfg");
   bsd.process();
-  delay(1000);
+  digitalWrite(13, HIGH);
+  delay(500);
+  digitalWrite(13, LOW);
+  delay(500);
 }

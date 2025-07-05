@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
 
     mp = MessageParser(variable_list=["m_depth", "m_pitch"])
-    extctl = Extctl(device="/dev/ttyUSB1",
+    extctl = Extctl(device="/dev/ttyUSB0",
                     message_parser=mp,
                     baudrate=9600)
     while True:

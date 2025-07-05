@@ -4,30 +4,58 @@
 
 void BSD::begin(const unsigned long baudrate) {
   if (baudrate) {
-      serial_.begin(baudrate);
+    serial_.begin(baudrate);
+    monitor_.begin(baudrate);
   }
   else {
     serial_.begin(baudrate_);
+    monitor_.begin(baudrate_);
   }
 }
 
+  
 void BSD::process(){
   char c;
-  uint8_t p=0;
-  char buffer[BUFFERSIZE];
-  static uint8_t status=0;
-  
+  // the status variable needs to be retained
+  static uint8_t status=0; 
+  monitor_.print("Processing: ");
+  monitor_.println(serial_.available());
   while (serial_.available() > 0) {
     c = serial_.read();
-    buffer[p++]=c;
-    if (c == '\n') {
-      buffer[p] = '\0';
-      parse_buffer(&status, buffer, p);
-      p=0;
+    monitor_.println(c);
+    inputBuffer_[p_]=c;
+    p_++;
+    if (c=='$'){
+      //We have seen a $. Note this.
+      if (status & DOLLAR_SIGN_SEEN){
+	// we see $ for the second time. Ignore what we have seen
+	// before.
+	p_=0; inputBuffer_[p_]=c; p_++;
+	status &= ~DOLLAR_SIGN_SEEN;
+      }
+      else {
+	status |= DOLLAR_SIGN_SEEN;
+      }
     }
+    if (c == '\n') {
+      inputBuffer_[p_] = '\0'; //override \n by \0
+      parse_buffer(&status);
+      monitor_.print(p_);
+      monitor_.print(" : ");
+      monitor_.println(inputBuffer_);
+      p_=0;
+    }
+    //if (status & CONFIGFILEREQUESTED){
+    monitor_.print(c);
+    //}
   }
-  monitor_.print(status);
-
+  /*
+  if  (!(status & CONFIGFILEREQUESTED)){
+    monitor_.print("<");
+    monitor_.print(status);
+    monitor_.println(">");
+  }
+  */
   if ((status & ACTIVE) && (!(status & CONFIGFILEREQUESTED))){
     status |= CONFIGFILEREQUESTED;
     requestConfigFile();
@@ -37,13 +65,12 @@ void BSD::process(){
 
 uint8_t BSD::get_identifier(char* identifierString,
 			    uint8_t* pPayload,
-			    const char* buffer,
 			    const uint8_t size){
   bool status;
   uint8_t errorno=0;
   uint8_t p;
   
-  status = (buffer[0]=='$');
+  status = (inputBuffer_[0]=='$');
   if (!status){
     errorno = ERROR_NO_DOLLAR_SIGN;
   }
@@ -52,7 +79,7 @@ uint8_t BSD::get_identifier(char* identifierString,
   }
   else {
     for  (p=1; p<IDENTIFIER_STRING_SIZE; p++){
-      if( (buffer[p] == ',') || (buffer[p] == '*') ){
+      if( (inputBuffer_[p] == ',') || (inputBuffer_[p] == '*') ){
 	break;
       }
     }
@@ -60,25 +87,31 @@ uint8_t BSD::get_identifier(char* identifierString,
       errorno = ERROR_IDENTIFIER_NOT_FOUND;
     }
     else {
-      //string is in buffer[1:p-1]
-      strncpy(identifierString, &buffer[1], p-1);
+      //string is in inputBuffer_[1:p-1]
+      monitor_.print(p);
+      monitor_.print(" ");
+      monitor_.println(inputBuffer_);
+
+      strncpy(identifierString, &inputBuffer_[1], p-1);
       identifierString[p-1] = '\0';
       *pPayload = p;
     }
   }
+  monitor_.println(inputBuffer_);
+  monitor_.print("error: ");
+  monitor_.println(errorno);
   return errorno;
 }
 
 
 uint8_t BSD::get_crc(char* crcString,
 		     uint8_t* pPayload,
-		     const char* buffer,
 		     const uint8_t size){
   uint8_t errorno=0;
   uint8_t p;
   
   for(p=size; p>1; p--){
-    if(buffer[p] == '*'){
+    if(inputBuffer_[p] == '*'){
       break;
     }
   }
@@ -87,7 +120,7 @@ uint8_t BSD::get_crc(char* crcString,
   }
   else{
     p++;
-    strncpy(crcString, &buffer[p], CRC_STRING_SIZE-1);
+    strncpy(crcString, &inputBuffer_[p], CRC_STRING_SIZE-1);
     crcString[CRC_STRING_SIZE-1] = '\0';
     *pPayload = p;
   }
@@ -95,7 +128,7 @@ uint8_t BSD::get_crc(char* crcString,
 }
 
     
-uint8_t BSD::compute_crc(uint8_t *crc, const char* buffer, const uint8_t size){
+uint8_t BSD::compute_crc(uint8_t *crc, const char *buffer, const uint8_t size){
   uint8_t status=0;
   uint8_t errorno = ERROR_NO_ERROR;
   *crc=0;
@@ -130,24 +163,24 @@ void BSD::readFileData(const char* encodedString){
 }
   
 
-uint8_t BSD::parse_buffer(uint8_t *status,
-			  const char* buffer,
-			  const uint8_t size){
+uint8_t BSD::parse_buffer(uint8_t *status){
   char identifierString[IDENTIFIER_STRING_SIZE];
   char crcString[CRC_STRING_SIZE];
   uint8_t crc, crc_payload;
   uint8_t p0, p1; // start and end positions of payload
   uint8_t errorno;
 
-  errorno = get_identifier(identifierString, &p0, buffer, size);
-  errorno |= get_crc(crcString, &p1, buffer, size);
-  errorno |= compute_crc(&crc_payload, buffer, size);
+  uint8_t size = strlen(inputBuffer_);
+  errorno = get_identifier(identifierString, &p0, size);
+  errorno |= get_crc(crcString, &p1, size);
+  errorno |= compute_crc(&crc_payload, inputBuffer_, size);
   if (errorno == ERROR_NO_ERROR){
     crc = strtol(crcString, NULL, 16);
     errorno |= (uint8_t)!(crc_payload==crc);
   }
-  //monitor_.print(buffer);
-  //monitor_.print(" ");
+  monitor_.print("error: ");
+  monitor_.print(errorno);
+  monitor_.print(" ID str: ");
   monitor_.println(identifierString);
 
   if (errorno == ERROR_NO_ERROR){
@@ -158,11 +191,14 @@ uint8_t BSD::parse_buffer(uint8_t *status,
       else if (strcmp(identifierString, "HI") == 0){
 	*status|=ACTIVE;
       }
+      else if (strcmp(identifierString, "BY") == 0){
+	*status=INACTIVE;
+      }
       else if (strcmp(identifierString, "FI") == 0){
 	//snprintf(buffer, p1-p0, "%s", buffer+p0);
-	monitor_.println("buffer");
-	monitor_.println(buffer);
-	//readFileData(buffer);
+	monitor_.println("inputBuffer_");
+	monitor_.println(inputBuffer_);
+	//readFileData();
       }
   }
   return errorno;
@@ -181,10 +217,17 @@ void BSD::requestConfigFile(){
   command[size+4] = '*';
   command[size+5] = '\0';
   compute_crc(&crc, command, size+5);
-  sprintf(command + size + 5, "%02x\r\n\0", crc);
-  serial_.print(command);
+  sprintf(command + size + 5, "%02x\n\0", crc);
+  delay(1000);
+  //serial_.write(command);
+  //serial_.write("$TXT,hello*16\n");
+  serial_.write("$FR,bsd.cfg*01\n");
   serial_.flush();
   monitor_.println("File requested with command:");
   monitor_.println(command);
+  delay(1000);
+  // serial_.write("$GO*08\n");
+  // serial_.flush();
+
 }
 
