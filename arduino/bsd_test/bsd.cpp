@@ -22,7 +22,9 @@ void BSD::process(){
   monitor_.println(serial_.available());
   while (serial_.available() > 0) {
     c = serial_.read();
-    monitor_.println(c);
+    monitor_.print("<");
+    monitor_.print(c);
+    monitor_.println(">");
     inputBuffer_[p_]=c;
     p_++;
     if (c=='$'){
