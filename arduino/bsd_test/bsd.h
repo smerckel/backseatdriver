@@ -17,8 +17,9 @@ const uint8_t INACTIVE = 0;
 const uint8_t ACTIVE = 1 << 0;
 const uint8_t CONFIGFILEREQUESTED = 1 << 1;
 const uint8_t DOLLAR_SIGN_SEEN = 1 << 2;
+const uint8_t DATABLOCKRECEIVED = 1 << 3;
 
-const uint8_t INPUTBUFFERSIZE = 128;
+const uint8_t INPUTBUFFERSIZE = 127;
 const uint8_t IDENTIFIER_STRING_SIZE = 4; // TXT + \0
 const uint8_t CRC_STRING_SIZE = 3; // 3e + \0
 
@@ -27,10 +28,10 @@ public:
   //Constructor using standard Serial input
 
   BSD(const char* configFilename,
-      SoftwareSerial& serial,
-      HardwareSerial& monitor=Serial,
+      SoftwareSerial& monitor,
+      HardwareSerial& serial=Serial,
       const unsigned long baudrate=9600)
-    : configFilename_{configFilename}, serial_{serial}, monitor_{monitor}, baudrate_{baudrate}, p_{0}{
+    : configFilename_{configFilename}, monitor_{monitor}, serial_{serial}, baudrate_{baudrate}, p_{0}{
   }
 
   void begin(const unsigned long baudrate=0);
@@ -53,18 +54,19 @@ public:
   
   void requestConfigFile();
 
+  void sendGoCommand();
 
   void readFileData(const char* encodedString);
   
 private:
-  SoftwareSerial& serial_;
-  HardwareSerial& monitor_;
+  HardwareSerial& serial_;
+  SoftwareSerial& monitor_;
   const unsigned long baudrate_;
   const char* configFilename_;
 
   // The input buffer and its pointer.
   char inputBuffer_[INPUTBUFFERSIZE];
-  uint8_t p_=0;
+  uint8_t p_;
   
 };
 

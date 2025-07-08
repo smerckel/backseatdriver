@@ -110,8 +110,6 @@ class Extctl(object):
         self.is_filerequested=True
     
     def read(self):
-        if not self.is_filerequested:
-            self.request_file()
         line = self.serial.readline()
         if line:
             print(line)
@@ -125,30 +123,30 @@ if __name__ == "__main__":
 
 
     mp = MessageParser(variable_list=["m_depth", "m_pitch"])
-    extctl = Extctl(device="/dev/ttyUSB0",
+    extctl = Extctl(device="/dev/ttyUSB1",
                     message_parser=mp,
                     baudrate=9600)
     while True:
         extctl.read()
 
 
+if 0:
+    # import re
 
-# import re
+    nmea_string = "$SW,0:0.12,1:508.0*3B"
 
-nmea_string = "$SW,0:0.12,1:508.0*3B"
+    # match = re.compile(r'\$([^,]+)')
+    match = re.compile(r'\$([^*]+)')
+    s=match.search(nmea_string).group(1)
 
-# match = re.compile(r'\$([^,]+)')
-match = re.compile(r'\$([^*]+)')
-s=match.search(nmea_string).group(1)
+    csum=0
+    for i in s.encode('ascii'):
+        csum ^= i
+    print(hex(csum), nmea_string)
 
-csum=0
-for i in s.encode('ascii'):
-    csum ^= i
-print(hex(csum), nmea_string)
-      
-import base64
-s = b"dGhyZXNob2xkOjEuMjM0Cm5fcHJvZmlsZXM6Mw=="
-s_decode = base64.b64decode(s)
+    import base64
+    s = b"dGhyZXNob2xkOjEuMjM0Cm5fcHJvZmlsZXM6Mw=="
+    s_decode = base64.b64decode(s)
 
-s = b'#some comments\ndmin:265\ndmax:365\nthreshold:1.234\nn_profiles:3'
-d_encode = base64.b64encode(s)
+    s = b'#some comments\ndmin:265\ndmax:365\nthreshold:1.234\nn_profiles:3'
+    d_encode = base64.b64encode(s)

@@ -11,6 +11,15 @@ void BSD::begin(const unsigned long baudrate) {
     serial_.begin(baudrate_);
     monitor_.begin(baudrate_);
   }
+  // Flush input buffers
+  delay(100);  // Small delay to ensure serial is ready
+  // Clear input buffer multiple times
+  for (int i = 0; i < 10; i++) {
+    while (serial_.available()) {
+      serial_.read();
+    }
+    delay(10);
+  }
 }
 
   
@@ -18,13 +27,8 @@ void BSD::process(){
   char c;
   // the status variable needs to be retained
   static uint8_t status=0; 
-  monitor_.print("Processing: ");
-  monitor_.println(serial_.available());
   while (serial_.available() > 0) {
     c = serial_.read();
-    monitor_.print("<");
-    monitor_.print(c);
-    monitor_.println(">");
     inputBuffer_[p_]=c;
     p_++;
     if (c=='$'){
@@ -41,14 +45,12 @@ void BSD::process(){
     }
     if (c == '\n') {
       inputBuffer_[p_] = '\0'; //override \n by \0
-      parse_buffer(&status);
-      monitor_.print(p_);
-      monitor_.print(" : ");
+      monitor_.print("inputBuffer_: ");
       monitor_.println(inputBuffer_);
+      parse_buffer(&status);
       p_=0;
     }
     //if (status & CONFIGFILEREQUESTED){
-    monitor_.print(c);
     //}
   }
   /*
@@ -61,7 +63,14 @@ void BSD::process(){
   if ((status & ACTIVE) && (!(status & CONFIGFILEREQUESTED))){
     status |= CONFIGFILEREQUESTED;
     requestConfigFile();
-  }  
+  }
+
+  if ((status & CONFIGFILEREQUESTED) && (p_ == 63)){
+    status |= DATABLOCKRECEIVED;
+    parse_buffer(&status);
+    status &= ~DATABLOCKRECEIVED;
+    sendGoCommand();
+  }
 }
 
 
@@ -180,10 +189,6 @@ uint8_t BSD::parse_buffer(uint8_t *status){
     crc = strtol(crcString, NULL, 16);
     errorno |= (uint8_t)!(crc_payload==crc);
   }
-  monitor_.print("error: ");
-  monitor_.print(errorno);
-  monitor_.print(" ID str: ");
-  monitor_.println(identifierString);
 
   if (errorno == ERROR_NO_ERROR){
       if (strcmp(identifierString, "SD") == 0){
@@ -198,7 +203,7 @@ uint8_t BSD::parse_buffer(uint8_t *status){
       }
       else if (strcmp(identifierString, "FI") == 0){
 	//snprintf(buffer, p1-p0, "%s", buffer+p0);
-	monitor_.println("inputBuffer_");
+	monitor_.print("inputBuffer_ : ");
 	monitor_.println(inputBuffer_);
 	//readFileData();
       }
@@ -224,12 +229,16 @@ void BSD::requestConfigFile(){
   //serial_.write(command);
   //serial_.write("$TXT,hello*16\n");
   serial_.write("$FR,bsd.cfg*01\n");
-  serial_.flush();
+  serial_.flush();  // Wait until writing is complete.
   monitor_.println("File requested with command:");
   monitor_.println(command);
-  delay(1000);
   // serial_.write("$GO*08\n");
   // serial_.flush();
 
 }
 
+
+void BSD::sendGoCommand(){
+  serial_.write("$GO*08\n");
+  serial_.flush();  // Wait until writing is complete.
+}

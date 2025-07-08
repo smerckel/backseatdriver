@@ -4,8 +4,11 @@
 ARDUINO_CLI = arduino-cli
 
 # Board settings (adjust for your specific board)
-BOARD = arduino:avr:uno
-PORT = /dev/ttyACM0
+#BOARD = arduino:avr:uno
+#PORT = /dev/ttyACM0
+
+BOARD = arduino:avr:pro:cpu=8MHzatmega328
+PORT = /dev/ttyUSB1
 
 # Sketch name
 SKETCH = bsd_test.ino

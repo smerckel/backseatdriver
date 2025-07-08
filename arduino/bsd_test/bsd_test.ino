@@ -1,13 +1,15 @@
 #include "bsd.h"
 #include <SoftwareSerial.h>
 
-SoftwareSerial bsdSerial = SoftwareSerial(9, 10);
+const uint8_t rxPin=10, txPin=11;
+
+SoftwareSerial bsdSerial = SoftwareSerial(rxPin, txPin);
 
 BSD bsd("bsd.cfg", bsdSerial);
 
 void setup(){
-  bsd.begin(9600);
   pinMode(13, OUTPUT);
+  bsd.begin(9600);
 }
 
 void loop(){
