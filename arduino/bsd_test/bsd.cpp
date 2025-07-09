@@ -11,77 +11,80 @@ void BSD::begin(const unsigned long baudrate) {
     serial_.begin(baudrate_);
     monitor_.begin(baudrate_);
   }
-  // Flush input buffers
-  delay(100);  // Small delay to ensure serial is ready
-  // Clear input buffer multiple times
-  for (int i = 0; i < 10; i++) {
-    while (serial_.available()) {
-      serial_.read();
+  // // Flush input buffers
+  // delay(100);  // Small delay to ensure serial is ready
+  // // Clear input buffer multiple times
+  // for (int i = 0; i < 10; i++) {
+  //   while (serial_.available()) {
+  //     serial_.read();
+  //   }
+  //   delay(10);
+  // }
+}
+
+
+void BSD::processInputBuffer(){
+  /* This method processes the inputBuffer_. Sometimes this buffer
+     contains two sentences. This method splits them and feeds
+     each sentence to the parseBuffer() method.
+     It turns out that each sentence ends with \r\n. The
+     buffer sent to parseBuffer is properly terminated, but
+     has no \r\n characters anymore.
+  */
+  char buffer[INPUTBUFFERSIZE];
+  uint8_t p=0, inputBufferSize;
+
+  inputBufferSize = strlen(inputBuffer_);
+  for(uint8_t k=0; k<inputBufferSize; k++){
+    buffer[p] = inputBuffer_[k];
+    if (inputBuffer_[k]=='\n'){
+      buffer[p-1]='\0'; //overwrites the \r
+      monitor_.print("buffer: ");
+      monitor_.println(buffer);
+      parseBuffer(buffer);
+      p=0;
     }
-    delay(10);
+    else
+      p++;
   }
 }
 
-  
+
+
 void BSD::process(){
   char c;
   // the status variable needs to be retained
-  static uint8_t status=0; 
   while (serial_.available() > 0) {
     c = serial_.read();
     inputBuffer_[p_]=c;
     p_++;
-    if (c=='$'){
-      //We have seen a $. Note this.
-      if (status & DOLLAR_SIGN_SEEN){
-	// we see $ for the second time. Ignore what we have seen
-	// before.
-	p_=0; inputBuffer_[p_]=c; p_++;
-	status &= ~DOLLAR_SIGN_SEEN;
-      }
-      else {
-	status |= DOLLAR_SIGN_SEEN;
-      }
-    }
-    if (c == '\n') {
-      inputBuffer_[p_] = '\0'; //override \n by \0
-      monitor_.print("inputBuffer_: ");
-      monitor_.println(inputBuffer_);
-      parse_buffer(&status);
-      p_=0;
-    }
-    //if (status & CONFIGFILEREQUESTED){
-    //}
-  }
-  /*
-  if  (!(status & CONFIGFILEREQUESTED)){
-    monitor_.print("<");
-    monitor_.print(status);
-    monitor_.println(">");
-  }
-  */
-  if ((status & ACTIVE) && (!(status & CONFIGFILEREQUESTED))){
-    status |= CONFIGFILEREQUESTED;
-    requestConfigFile();
   }
 
-  if ((status & CONFIGFILEREQUESTED) && (p_ == 63)){
-    status |= DATABLOCKRECEIVED;
-    parse_buffer(&status);
-    status &= ~DATABLOCKRECEIVED;
-    sendGoCommand();
+  if (p_ > 0){
+    inputBuffer_[p_]='\0';
+    // just for monitoring wha
+    // monitor_.print(p_);
+    // monitor_.print(" : ");
+    // monitor_.println(inputBuffer_);
+    // 
+    processInputBuffer();
   }
+
+  p_ = 0;
 }
 
 
-uint8_t BSD::get_identifier(char* identifierString,
-			    uint8_t* pPayload,
-			    const uint8_t size){
+
+
+uint8_t BSD::getIdentifier(char* identifierString,
+			   uint8_t* pPayload,
+			   const char* buffer,
+			   const uint8_t size){
   bool status;
   uint8_t errorno=0;
   uint8_t p;
   
-  status = (inputBuffer_[0]=='$');
+  status = (buffer[0]=='$');
   if (!status){
     errorno = ERROR_NO_DOLLAR_SIGN;
   }
@@ -90,7 +93,7 @@ uint8_t BSD::get_identifier(char* identifierString,
   }
   else {
     for  (p=1; p<IDENTIFIER_STRING_SIZE; p++){
-      if( (inputBuffer_[p] == ',') || (inputBuffer_[p] == '*') ){
+      if( (buffer[p] == ',') || (buffer[p] == '*') ){
 	break;
       }
     }
@@ -98,31 +101,24 @@ uint8_t BSD::get_identifier(char* identifierString,
       errorno = ERROR_IDENTIFIER_NOT_FOUND;
     }
     else {
-      //string is in inputBuffer_[1:p-1]
-      monitor_.print(p);
-      monitor_.print(" ");
-      monitor_.println(inputBuffer_);
-
-      strncpy(identifierString, &inputBuffer_[1], p-1);
+      strncpy(identifierString, &buffer[1], p-1);
       identifierString[p-1] = '\0';
       *pPayload = p;
     }
   }
-  monitor_.println(inputBuffer_);
-  monitor_.print("error: ");
-  monitor_.println(errorno);
   return errorno;
 }
 
 
-uint8_t BSD::get_crc(char* crcString,
-		     uint8_t* pPayload,
-		     const uint8_t size){
+uint8_t BSD::getCrc(char* crcString,
+		    uint8_t* pPayload,
+		    const char* buffer,
+		    const uint8_t size){
   uint8_t errorno=0;
   uint8_t p;
-  
+ 
   for(p=size; p>1; p--){
-    if(inputBuffer_[p] == '*'){
+    if(buffer[p] == '*'){
       break;
     }
   }
@@ -131,7 +127,7 @@ uint8_t BSD::get_crc(char* crcString,
   }
   else{
     p++;
-    strncpy(crcString, &inputBuffer_[p], CRC_STRING_SIZE-1);
+    strncpy(crcString, &buffer[p], CRC_STRING_SIZE-1);
     crcString[CRC_STRING_SIZE-1] = '\0';
     *pPayload = p;
   }
@@ -139,9 +135,9 @@ uint8_t BSD::get_crc(char* crcString,
 }
 
     
-uint8_t BSD::compute_crc(uint8_t *crc, const char *buffer, const uint8_t size){
+uint8_t BSD::computeCrc(uint8_t *crc, const char *buffer, const uint8_t size){
   uint8_t status=0;
-  uint8_t errorno = ERROR_NO_ERROR;
+  uint8_t errorno = NO_ERROR;
   *crc=0;
   for(uint8_t p=0; p<size; ++p){
     if (buffer[p]=='*'){
@@ -174,40 +170,61 @@ void BSD::readFileData(const char* encodedString){
 }
   
 
-uint8_t BSD::parse_buffer(uint8_t *status){
+
+
+
+uint8_t BSD::parseBuffer(const char *buffer){
   char identifierString[IDENTIFIER_STRING_SIZE];
   char crcString[CRC_STRING_SIZE];
-  uint8_t crc, crc_payload;
+  uint8_t crc=0, crc_payload;
   uint8_t p0, p1; // start and end positions of payload
   uint8_t errorno;
 
-  uint8_t size = strlen(inputBuffer_);
-  errorno = get_identifier(identifierString, &p0, size);
-  errorno |= get_crc(crcString, &p1, size);
-  errorno |= compute_crc(&crc_payload, inputBuffer_, size);
-  if (errorno == ERROR_NO_ERROR){
+  uint8_t size = strlen(buffer);
+  
+  errorno = getIdentifier(identifierString, &p0, buffer, size);
+  errorno |= getCrc(crcString, &p1, buffer, size);
+  errorno |= computeCrc(&crc_payload, buffer, size);
+  if (errorno == NO_ERROR){
     crc = strtol(crcString, NULL, 16);
     errorno |= (uint8_t)!(crc_payload==crc);
   }
-
-  if (errorno == ERROR_NO_ERROR){
-      if (strcmp(identifierString, "SD") == 0){
-	*status|=ACTIVE;
-	monitor_.println("Need to do SD.");
-      }
-      else if (strcmp(identifierString, "HI") == 0){
-	*status|=ACTIVE;
-      }
-      else if (strcmp(identifierString, "BY") == 0){
-	*status=INACTIVE;
-      }
-      else if (strcmp(identifierString, "FI") == 0){
-	//snprintf(buffer, p1-p0, "%s", buffer+p0);
-	monitor_.print("inputBuffer_ : ");
-	monitor_.println(inputBuffer_);
-	//readFileData();
-      }
+  if (errorno == NO_ERROR){
+    if (strcmp(identifierString, "SD") == 0){
+      status_ |= ACTIVE;
+      status_ |= DO_SD; 
+    }
+    else if (strcmp(identifierString, "HI") == 0){
+      status_ |= ACTIVE;
+    }
+    else if (strcmp(identifierString, "BY") == 0){
+      status_ = INACTIVE; // Clears all flags
+    }
+    else if (strcmp(identifierString, "FI") == 0){
+      if(strcmp(buffer, "$FI*0f")==0)
+	status_ |= FILETRANSFERCOMPLETE;
+      else
+	status_ |= DATABLOCKRECEIVED;
+    }
   }
+
+  monitor_.print("Error no : ");monitor_.println(errorno);
+  monitor_.println(identifierString);
+  monitor_.print("Status : ");monitor_.println(status_);
+  monitor_.println("----");
+
+  
+  if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
+    status_ |= CONFIGFILEREQUESTED;
+    requestConfigFile();
+  }
+
+  if ((status_ & ACTIVE) && ((status_ & DATABLOCKRECEIVED)) ){
+    status_ &= ~DATABLOCKRECEIVED; // Clear this flag
+    //readFileData();
+    sendGoCommand();
+  }
+
   return errorno;
 }
 
@@ -223,22 +240,18 @@ void BSD::requestConfigFile(){
   // Add the trailing * 
   command[size+4] = '*';
   command[size+5] = '\0';
-  compute_crc(&crc, command, size+5);
+  computeCrc(&crc, command, size+5);
   sprintf(command + size + 5, "%02x\n\0", crc);
-  delay(1000);
-  //serial_.write(command);
-  //serial_.write("$TXT,hello*16\n");
-  serial_.write("$FR,bsd.cfg*01\n");
+  serial_.write(command);
   serial_.flush();  // Wait until writing is complete.
   monitor_.println("File requested with command:");
   monitor_.println(command);
-  // serial_.write("$GO*08\n");
-  // serial_.flush();
-
 }
 
 
 void BSD::sendGoCommand(){
+  delay(1000);
   serial_.write("$GO*08\n");
   serial_.flush();  // Wait until writing is complete.
+  monitor_.println("Sent command: $GO*08\n");
 }

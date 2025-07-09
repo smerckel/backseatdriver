@@ -8,7 +8,7 @@ ARDUINO_CLI = arduino-cli
 #PORT = /dev/ttyACM0
 
 BOARD = arduino:avr:pro:cpu=8MHzatmega328
-PORT = /dev/ttyUSB1
+PORT = /dev/ttyUSB0
 
 # Sketch name
 SKETCH = bsd_test.ino
