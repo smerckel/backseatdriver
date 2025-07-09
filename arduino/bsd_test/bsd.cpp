@@ -156,17 +156,79 @@ uint8_t BSD::computeCrc(uint8_t *crc, const char *buffer, const uint8_t size){
   return errorno;
 }
 
-void BSD::readFileData(const char* encodedString){
-  uint8_t encodedStringLength;
-
-  encodedStringLength = strlen(encodedString);
-  
+void BSD::decodeBase64(char* decodedString, const char* encodedString){
+  uint8_t encodedStringLength = strlen(encodedString);
   uint8_t decodedLength = Base64.decodedLength(encodedString,
-					       encodedStringLength);
-  char decodedString[decodedLength + 1];
+   					       encodedStringLength);
   Base64.decode(decodedString,
 		encodedString,
 		encodedStringLength);
+  // From some reason, the first three characters are always the same and nonsense.
+  for (uint8_t k=3; k<decodedLength; k++){
+    decodedString[k-3] = decodedString[k];
+  }
+}
+
+void BSD::readFileData(const char* encodedString){
+  static uint8_t status=EXPECTINGKEYWORD;
+  static char keyword[MAXKEYWORDSIZE];
+  static char value[MAXVALUESIZE];
+  static uint8_t pKeyword=0;
+  static uint8_t pValue=0;
+  
+  char decodedString[DECODEDSTRINGSIZE];
+  decodeBase64(decodedString, encodedString);
+  uint8_t size = strlen(decodedString);
+  monitor_.println("entering readfiledata...");
+  monitor_.println(keyword);
+  monitor_.println(value);
+  monitor_.println("---");
+  
+  for (uint8_t p=0; p<size; p++){
+    if (decodedString[p]=='#')
+      status |= ISCOMMENT;
+    if (status & ISCOMMENT){
+      if (decodedString[p]=='\n')
+	status &= ~ISCOMMENT; // clear flag
+      continue; // Ignores all characters on a comment line
+    }
+    if (decodedString[p]=='\r')
+      continue; // ignore any \r that may be
+    else if (decodedString[p]==':'){
+      status &= ~ EXPECTINGKEYWORD;
+      status |= EXPECTINGVALUE;
+      continue;
+    }
+    else if (decodedString[p]=='\n'){
+      status &= ~EXPECTINGKEYWORD;
+      status &= ~EXPECTINGVALUE;
+      status |= PROCESSKEYVALUEPAIR;
+    }
+    //
+    if (status & EXPECTINGKEYWORD){
+      keyword[pKeyword]=decodedString[p];
+      pKeyword++;
+    }
+    else if (status & EXPECTINGVALUE){
+      value[pValue]=decodedString[p];
+      pValue++;
+    }
+    if (status & PROCESSKEYVALUEPAIR){
+      keyword[++pKeyword]='\0';
+      value[++pValue]='\0';
+      monitor_.print(keyword);
+      monitor_.print("=");
+      monitor_.println(value);
+
+      // do processing
+
+      pKeyword=0;
+      pValue=0;
+      status &= ~PROCESSKEYVALUEPAIR;
+      status &= ~EXPECTINGVALUE;
+      status |= ~EXPECTINGKEYWORD;
+    }
+  }
 }
   
 
@@ -221,7 +283,7 @@ uint8_t BSD::parseBuffer(const char *buffer){
 
   if ((status_ & ACTIVE) && ((status_ & DATABLOCKRECEIVED)) ){
     status_ &= ~DATABLOCKRECEIVED; // Clear this flag
-    //readFileData();
+    readFileData(buffer);
     sendGoCommand();
   }
 

@@ -23,6 +23,16 @@ const uint8_t DO_SD = 1 << 4;
 const uint8_t INPUTBUFFERSIZE = 64;
 const uint8_t IDENTIFIER_STRING_SIZE = 4; // TXT + \0
 const uint8_t CRC_STRING_SIZE = 3; // 3e + \0
+const uint8_t DECODEDSTRINGSIZE=86; // Safe 1.3 times 64
+
+
+const uint8_t MAXKEYWORDSIZE = 10; // fits threshold/nprofiles
+const uint8_t MAXVALUESIZE = 10; 
+const uint8_t EXPECTINGKEYWORD = 1 << 0;
+const uint8_t EXPECTINGVALUE = 1 << 1;
+const uint8_t PROCESSKEYVALUEPAIR = 1 << 2;
+const uint8_t ISCOMMENT = 1 << 3;
+ 
 
 class BSD{
 public:
@@ -63,6 +73,8 @@ public:
   void sendGoCommand();
 
   void readFileData(const char* encodedString);
+
+  void decodeBase64(char* decodedString, const char* encodedString);
   
 private:
   HardwareSerial& serial_;
