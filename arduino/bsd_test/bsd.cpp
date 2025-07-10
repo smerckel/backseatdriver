@@ -103,7 +103,7 @@ uint8_t BSD::getIdentifier(char* identifierString,
     else {
       strncpy(identifierString, &buffer[1], p-1);
       identifierString[p-1] = '\0';
-      *pPayload = p;
+      *pPayload = p+1; //  buffer[p]==',' payload starts 1 after.
     }
   }
   return errorno;
@@ -129,7 +129,7 @@ uint8_t BSD::getCrc(char* crcString,
     p++;
     strncpy(crcString, &buffer[p], CRC_STRING_SIZE-1);
     crcString[CRC_STRING_SIZE-1] = '\0';
-    *pPayload = p;
+    *pPayload = p-1; // p is at start of crc code. Points to 1 byte after payload
   }
   return errorno;
 }
@@ -252,11 +252,38 @@ void BSD::readFileData(const char* encodedString){
 }
   
 void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
-  monitor_.println(buffer);
-  monitor_.println(p0);
-  monitor_.println(p1);
+  uint8_t status=0, pValue=0;
+  uint8_t parameterIndex;
+  char valueString[MAXVALUESIZE];
+  
+  for(uint8_t p=p0; p<=p1; p++)
+    {
+      if (buffer[p]==':'){
+	status=1;
+	continue;
+      }
+      if ((buffer[p]==',') || (buffer[p]=='*')){
+	valueString[pValue]='\0';
+	switch (parameterIndex){
+	case 0:
+	  sci_water_pressure_ = atof(valueString);
+	  break;
+	case 1:
+	  sci_water_temp_ = atof(valueString);
+	  break;
+	}
+	pValue=0;
+	status=0;
+      }
+      else if (status==0){
+	parameterIndex = (uint8_t) buffer[p] - 48;
+      }
+      else if (status==1){
+	valueString[pValue++]=buffer[p];
+      }
+    }
 }
-
+	
 
 uint8_t BSD::parseBuffer(const char *buffer){
   char identifierString[IDENTIFIER_STRING_SIZE];
