@@ -62,14 +62,8 @@ void BSD::process(){
 
   if (p_ > 0){
     inputBuffer_[p_]='\0';
-    // just for monitoring wha
-    // monitor_.print(p_);
-    // monitor_.print(" : ");
-    // monitor_.println(inputBuffer_);
-    // 
     processInputBuffer();
   }
-
   p_ = 0;
 }
 
@@ -200,14 +194,14 @@ void BSD::readFileData(const char* encodedString){
       status = PROCESSKEYVALUEPAIR; // clears all other flags too.
     }
     //
-    if ((int)decodedString[p]>48)
-      monitor_.print(decodedString[p]);
-    else
-      monitor_.print("*");
-    monitor_.print(" : ");
-    monitor_.print((int)decodedString[p]);
-    monitor_.print(" : ");
-    monitor_.println(status);
+    // if ((int)decodedString[p]>48)
+    //   monitor_.print(decodedString[p]);
+    // else
+    //   monitor_.print("*");
+    // monitor_.print(" : ");
+    // monitor_.print((int)decodedString[p]);
+    // monitor_.print(" : ");
+    // monitor_.println(status);
     
     if (status & EXPECTINGKEYWORD){
       keyword[pKeyword]=decodedString[p];
@@ -220,10 +214,10 @@ void BSD::readFileData(const char* encodedString){
     if (status & PROCESSKEYVALUEPAIR){
       keyword[++pKeyword]='\0';
       value[++pValue]='\0';
-      monitor_.print("processing: ");
-      monitor_.print(keyword);
-      monitor_.print("=");
-      monitor_.println(value);
+      // monitor_.print("processing: ");
+      // monitor_.print(keyword);
+      // monitor_.print("=");
+      // monitor_.println(value);
 
       if (strcmp(keyword, "dmin")==0)
 	dmin_ = atof(value);
@@ -242,8 +236,6 @@ void BSD::readFileData(const char* encodedString){
       monitor_.print(":");
       monitor_.println(nprofiles_);
       
-      // do processing
-
       pKeyword=0;
       pValue=0;
       status = EXPECTINGKEYWORD;
@@ -259,8 +251,6 @@ void BSD::sendSWmessage(uint8_t index, int value){
   sprintf(&(buffer[4]), "%d,%d\0", index, value);
   computeCrc(&crc, buffer, strlen(buffer));
   sprintf(&(buffer[4]), "%d,%d*%02x\n\0", index, value, crc);
-  monitor_.print("SW message: ");
-  monitor_.println(buffer);
   serial_.write(buffer);
   
 }
@@ -275,16 +265,12 @@ void BSD::sendSWmessage(uint8_t index, float value){
   sprintf(&(buffer[4]), "%d:%s\0", index, floatString);
   computeCrc(&crc, buffer, strlen(buffer));
   sprintf(&(buffer[4]), "%d:%s*%02x\n\0", index, floatString, crc);
-  monitor_.print("SW message: ");
-  monitor_.println(buffer);
   serial_.write(buffer);
 }
 
 void BSD::updateMissionParameters(){
   static uint8_t status=0;
-  monitor_.println("entering Update mission parameters ...");
   if ((sci_water_pressure_< -10) || (sci_water_temp_ < -10)){
-    monitor_.println("exiting Update mission parameters early...");
     return;
   }
   /* Note: the sendSWmessage expects an int or float, not double. If
@@ -295,12 +281,8 @@ void BSD::updateMissionParameters(){
      
      sendSWmessage(0,  (float) 25.0);
   */
-  monitor_.println("Update mission parameters...");
-  monitor_.print("Status : ");
-  monitor_.println(status);
   if (status==0){
     sendSWmessage(0,  (float) 25.0);
-    monitor_.println("Called sendSWmessage.");
     status=1;
   }
   
@@ -346,8 +328,6 @@ void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
 	valueString[pValue++]=buffer[p];
       }
     }
-  monitor_.println(sci_water_temp_);
-  monitor_.println(sci_water_pressure_);
 }
 	
 
@@ -399,16 +379,13 @@ uint8_t BSD::parseBuffer(const char *buffer){
   monitor_.println("----");
 
   if ((status_ & ACTIVE) && (status_ & DO_SD)){
-    monitor_.println("about to do parsepayload");
     parsePayloadSD(buffer, p0, p1);
-    monitor_.println("about to do update");
     updateMissionParameters();
-    monitor_.println("done with update");
   }
     
   if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
     status_ |= CONFIGFILEREQUESTED;
-    //requestConfigFile();
+    requestConfigFile();
   }
 
   if ((status_ & ACTIVE) && ((status_ & DATABLOCKRECEIVED)) ){
@@ -436,8 +413,8 @@ void BSD::requestConfigFile(){
   sprintf(command + size + 5, "%02x\n\0", crc);
   serial_.write(command);
   serial_.flush();  // Wait until writing is complete.
-  monitor_.println("File requested with command:");
-  monitor_.println(command);
+  // monitor_.println("File requested with command:");
+  // monitor_.println(command);
 }
 
 
@@ -445,5 +422,5 @@ void BSD::sendGoCommand(){
   delay(1000);
   serial_.write("$GO*08\n");
   serial_.flush();  // Wait until writing is complete.
-  monitor_.println("Sent command: $GO*08\n");
+  // monitor_.println("Sent command: $GO*08\n");
 }
