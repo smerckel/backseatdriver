@@ -179,10 +179,6 @@ void BSD::readFileData(const char* encodedString){
   char decodedString[DECODEDSTRINGSIZE];
   decodeBase64(decodedString, encodedString);
   uint8_t size = strlen(decodedString);
-  monitor_.println("entering readfiledata...");
-  monitor_.println(keyword);
-  monitor_.println(value);
-  monitor_.println("---");
   
   for (uint8_t p=0; p<size; p++){
     if (decodedString[p]=='#')
@@ -192,19 +188,27 @@ void BSD::readFileData(const char* encodedString){
 	status &= ~ISCOMMENT; // clear flag
       continue; // Ignores all characters on a comment line
     }
-    if (decodedString[p]=='\r')
+    else if (decodedString[p]=='\r')
       continue; // ignore any \r that may be
-    else if (decodedString[p]==':'){
+    // From here we have something of interest.
+    if (decodedString[p]=='='){
       status &= ~ EXPECTINGKEYWORD;
       status |= EXPECTINGVALUE;
       continue;
     }
     else if (decodedString[p]=='\n'){
-      status &= ~EXPECTINGKEYWORD;
-      status &= ~EXPECTINGVALUE;
-      status |= PROCESSKEYVALUEPAIR;
+      status = PROCESSKEYVALUEPAIR; // clears all other flags too.
     }
     //
+    if ((int)decodedString[p]>48)
+      monitor_.print(decodedString[p]);
+    else
+      monitor_.print("*");
+    monitor_.print(" : ");
+    monitor_.print((int)decodedString[p]);
+    monitor_.print(" : ");
+    monitor_.println(status);
+    
     if (status & EXPECTINGKEYWORD){
       keyword[pKeyword]=decodedString[p];
       pKeyword++;
@@ -216,17 +220,33 @@ void BSD::readFileData(const char* encodedString){
     if (status & PROCESSKEYVALUEPAIR){
       keyword[++pKeyword]='\0';
       value[++pValue]='\0';
+      monitor_.print("processing: ");
       monitor_.print(keyword);
       monitor_.print("=");
       monitor_.println(value);
 
+      if (strcmp(keyword, "dmin")==0)
+	dmin_ = atof(value);
+      else if (strcmp(keyword, "dmax")==0)
+	dmax_ = atof(value);
+      else if (strcmp(keyword, "threshold")==0)
+	threshold_ = atof(value);
+      else if (strcmp(keyword, "n_profiles")==0)
+	nprofiles_ = atoi(value);
+
+      monitor_.print(dmin_);
+      monitor_.print(":");
+      monitor_.print(dmax_);
+      monitor_.print(":");
+      monitor_.print(threshold_);
+      monitor_.print(":");
+      monitor_.println(nprofiles_);
+      
       // do processing
 
       pKeyword=0;
       pValue=0;
-      status &= ~PROCESSKEYVALUEPAIR;
-      status &= ~EXPECTINGVALUE;
-      status |= ~EXPECTINGKEYWORD;
+      status = EXPECTINGKEYWORD;
     }
   }
 }
@@ -269,7 +289,14 @@ uint8_t BSD::parseBuffer(const char *buffer){
 	status_ |= DATABLOCKRECEIVED;
     }
   }
-
+  else if ((errorno > 0) && (status_ & CONFIGFILEREQUESTED)){
+    /* Something went wrong during file transfer. Cancel current
+       transaction and start again.
+    */
+    status_ &= ~CONFIGFILEREQUESTED;
+    status_ &= ~DATABLOCKRECEIVED;
+    return errorno;
+  }
   monitor_.print("Error no : ");monitor_.println(errorno);
   monitor_.println(identifierString);
   monitor_.print("Status : ");monitor_.println(status_);

@@ -26,8 +26,8 @@ const uint8_t CRC_STRING_SIZE = 3; // 3e + \0
 const uint8_t DECODEDSTRINGSIZE=86; // Safe 1.3 times 64
 
 
-const uint8_t MAXKEYWORDSIZE = 10; // fits threshold/nprofiles
-const uint8_t MAXVALUESIZE = 10; 
+const uint8_t MAXKEYWORDSIZE = 12; // fits threshold/nprofiles
+const uint8_t MAXVALUESIZE = 12; 
 const uint8_t EXPECTINGKEYWORD = 1 << 0;
 const uint8_t EXPECTINGVALUE = 1 << 1;
 const uint8_t PROCESSKEYVALUEPAIR = 1 << 2;
