@@ -251,8 +251,19 @@ void BSD::readFileData(const char* encodedString){
   }
 }
 
-//void BSD::sendSWmessage(uint8_t index, uint8_t value){
-//}
+void BSD::sendSWmessage(uint8_t index, int value){
+  char buffer[INPUTBUFFERSIZE];
+  uint8_t crc;
+  
+  strncpy(buffer,"$SW,", 4);
+  sprintf(&(buffer[4]), "%d,%d\0", index, value);
+  computeCrc(&crc, buffer, strlen(buffer));
+  sprintf(&(buffer[4]), "%d,%d*%02x\n\0", index, value, crc);
+  monitor_.print("SW message: ");
+  monitor_.println(buffer);
+  serial_.write(buffer);
+  
+}
 
 void BSD::sendSWmessage(uint8_t index, float value){
   char buffer[INPUTBUFFERSIZE];
@@ -272,9 +283,17 @@ void BSD::sendSWmessage(uint8_t index, float value){
 void BSD::updateMissionParameters(){
   if ((sci_water_pressure_< -10) || (sci_water_temp_ < -10))
     return;
-  sendSWmessage(0, 25.0);
+  /* Note: the sendSWmessage expects an int or float, not double. If
+     you supply just a float, then it is interpreted as a double. Type
+     case it first.
+
+     Example:
+     
+     sendSWmessage(0,  (float) 25.0);
+  */
+  sendSWmessage(0,  (float) 25.0);
   if(sci_water_pressure_*10>dmin_){
-    sendSWmessage(0, 25.0);
+    sendSWmessage(0, (float) 25.0);
   }
 }
 

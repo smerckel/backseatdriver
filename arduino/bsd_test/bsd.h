@@ -69,7 +69,7 @@ public:
 		      const char* buffer,
 		      const uint8_t size);
 
-  //void sendSWmessage(uint8_t index, uint8_t value);
+  void sendSWmessage(uint8_t index, int value);
   void sendSWmessage(uint8_t index, float value);
 
   void parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1);
