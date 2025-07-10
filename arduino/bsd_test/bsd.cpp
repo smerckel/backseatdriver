@@ -251,8 +251,11 @@ void BSD::readFileData(const char* encodedString){
   }
 }
   
-
-
+void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
+  monitor_.println(buffer);
+  monitor_.println(p0);
+  monitor_.println(p1);
+}
 
 
 uint8_t BSD::parseBuffer(const char *buffer){
@@ -302,10 +305,13 @@ uint8_t BSD::parseBuffer(const char *buffer){
   monitor_.print("Status : ");monitor_.println(status_);
   monitor_.println("----");
 
-  
+  if ((status_ & ACTIVE) && (status_ & DO_SD)){
+    parsePayloadSD(buffer, p0, p1);
+  }
+    
   if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
     status_ |= CONFIGFILEREQUESTED;
-    requestConfigFile();
+    //requestConfigFile();
   }
 
   if ((status_ & ACTIVE) && ((status_ & DATABLOCKRECEIVED)) ){

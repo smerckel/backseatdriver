@@ -67,6 +67,8 @@ public:
   uint8_t computeCrc(uint8_t *crc,
 		      const char* buffer,
 		      const uint8_t size);
+
+  void parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1);
   
   void requestConfigFile();
 
@@ -88,6 +90,13 @@ private:
 
   uint8_t status_;
 
+  // Variables that we read from the glider. The order has to
+  // correspond with the order of variables in the extctl.ini
+  // file. These variables should go into their own class someday.
+  
+  float sci_water_pressure_;
+  float sci_water_temp_;
+  
   // Variables that control the flight logic. They should go into their own class someday.
   float dmin_;
   float dmax_;
