@@ -23,7 +23,7 @@ const uint8_t DO_SD = 1 << 4;
 const uint8_t INPUTBUFFERSIZE = 64;
 const uint8_t IDENTIFIER_STRING_SIZE = 4; // TXT + \0
 const uint8_t CRC_STRING_SIZE = 3; // 3e + \0
-const uint8_t DECODEDSTRINGSIZE=86; // Safe 1.3 times 64
+const uint8_t DECODEDSTRINGSIZE=34; // extctl.ini defines 32.
 
 
 const uint8_t MAXKEYWORDSIZE = 12; // fits threshold/nprofiles
@@ -43,7 +43,8 @@ public:
       HardwareSerial& serial=Serial,
       const unsigned long baudrate=9600)
     : configFilename_{configFilename}, monitor_{monitor}, serial_{serial},
-      baudrate_{baudrate}, p_{0}, status_{INACTIVE}{
+      baudrate_{baudrate}, p_{0}, status_{INACTIVE},
+      sci_water_pressure_{-99}, sci_water_temp_{-99}{
   }
 
   void begin(const unsigned long baudrate=0);
@@ -68,7 +69,12 @@ public:
 		      const char* buffer,
 		      const uint8_t size);
 
+  //void sendSWmessage(uint8_t index, uint8_t value);
+  void sendSWmessage(uint8_t index, float value);
+
   void parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1);
+
+  void updateMissionParameters();
   
   void requestConfigFile();
 

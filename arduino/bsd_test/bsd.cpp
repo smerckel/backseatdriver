@@ -250,7 +250,35 @@ void BSD::readFileData(const char* encodedString){
     }
   }
 }
+
+//void BSD::sendSWmessage(uint8_t index, uint8_t value){
+//}
+
+void BSD::sendSWmessage(uint8_t index, float value){
+  char buffer[INPUTBUFFERSIZE];
+  char floatString[MAXVALUESIZE];
+  uint8_t crc;
   
+  strncpy(buffer,"$SW,", 4);
+  dtostrf(value, 1, 3, floatString);
+  sprintf(&(buffer[4]), "%d,%s\0", index, floatString);
+  computeCrc(&crc, buffer, strlen(buffer));
+  sprintf(&(buffer[4]), "%d,%s*%02x\n\0", index, floatString, crc);
+  monitor_.print("SW message: ");
+  monitor_.println(buffer);
+  serial_.write(buffer);
+}
+
+void BSD::updateMissionParameters(){
+  if ((sci_water_pressure_< -10) || (sci_water_temp_ < -10))
+    return;
+  sendSWmessage(0, 25.0);
+  if(sci_water_pressure_*10>dmin_){
+    sendSWmessage(0, 25.0);
+  }
+}
+
+
 void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
   uint8_t status=0, pValue=0;
   uint8_t parameterIndex;
@@ -334,6 +362,7 @@ uint8_t BSD::parseBuffer(const char *buffer){
 
   if ((status_ & ACTIVE) && (status_ & DO_SD)){
     parsePayloadSD(buffer, p0, p1);
+    updateMissionParameters();
   }
     
   if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
