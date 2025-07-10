@@ -272,17 +272,21 @@ void BSD::sendSWmessage(uint8_t index, float value){
   
   strncpy(buffer,"$SW,", 4);
   dtostrf(value, 1, 3, floatString);
-  sprintf(&(buffer[4]), "%d,%s\0", index, floatString);
+  sprintf(&(buffer[4]), "%d:%s\0", index, floatString);
   computeCrc(&crc, buffer, strlen(buffer));
-  sprintf(&(buffer[4]), "%d,%s*%02x\n\0", index, floatString, crc);
+  sprintf(&(buffer[4]), "%d:%s*%02x\n\0", index, floatString, crc);
   monitor_.print("SW message: ");
   monitor_.println(buffer);
   serial_.write(buffer);
 }
 
 void BSD::updateMissionParameters(){
-  if ((sci_water_pressure_< -10) || (sci_water_temp_ < -10))
+  static uint8_t status=0;
+  monitor_.println("entering Update mission parameters ...");
+  if ((sci_water_pressure_< -10) || (sci_water_temp_ < -10)){
+    monitor_.println("exiting Update mission parameters early...");
     return;
+  }
   /* Note: the sendSWmessage expects an int or float, not double. If
      you supply just a float, then it is interpreted as a double. Type
      case it first.
@@ -291,10 +295,18 @@ void BSD::updateMissionParameters(){
      
      sendSWmessage(0,  (float) 25.0);
   */
-  sendSWmessage(0,  (float) 25.0);
-  if(sci_water_pressure_*10>dmin_){
-    sendSWmessage(0, (float) 25.0);
+  monitor_.println("Update mission parameters...");
+  monitor_.print("Status : ");
+  monitor_.println(status);
+  if (status==0){
+    sendSWmessage(0,  (float) 25.0);
+    monitor_.println("Called sendSWmessage.");
+    status=1;
   }
+  
+//   if(sci_water_pressure_*10>dmin_){
+//     sendSWmessage(0, (float) 25.0);
+//   }
 }
 
 
@@ -311,11 +323,16 @@ void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
       }
       if ((buffer[p]==',') || (buffer[p]=='*')){
 	valueString[pValue]='\0';
+	/*Note the parameter index is counted THROUGHOUT the exctl file!!!
+
+	  This means that any ouput parameters in mp and os section also count.
+	  Just so you know...
+	*/
 	switch (parameterIndex){
-	case 0:
+	case 1:
 	  sci_water_pressure_ = atof(valueString);
 	  break;
-	case 1:
+	case 2:
 	  sci_water_temp_ = atof(valueString);
 	  break;
 	}
@@ -329,6 +346,8 @@ void BSD::parsePayloadSD(const char* buffer, uint8_t p0, uint8_t p1){
 	valueString[pValue++]=buffer[p];
       }
     }
+  monitor_.println(sci_water_temp_);
+  monitor_.println(sci_water_pressure_);
 }
 	
 
@@ -380,8 +399,11 @@ uint8_t BSD::parseBuffer(const char *buffer){
   monitor_.println("----");
 
   if ((status_ & ACTIVE) && (status_ & DO_SD)){
+    monitor_.println("about to do parsepayload");
     parsePayloadSD(buffer, p0, p1);
+    monitor_.println("about to do update");
     updateMissionParameters();
+    monitor_.println("done with update");
   }
     
   if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
