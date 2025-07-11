@@ -164,14 +164,23 @@ void BSD::decodeBase64(char* decodedString, const char* encodedString){
 }
 
 void BSD::readFileData(const char* encodedString){
+  static char backlogBuffer[INPUTBUFFERSIZE]="";
+  static uint8_t pBacklog=0;
   static uint8_t status=EXPECTINGKEYWORD;
   static char keyword[MAXKEYWORDSIZE];
   static char value[MAXVALUESIZE];
   static uint8_t pKeyword=0;
   static uint8_t pValue=0;
   
-  char decodedString[DECODEDSTRINGSIZE];
+  char decodedString[INPUTBUFFERSIZE];
+  //Note this is safe, decoded string is max 32 chars long.
   decodeBase64(decodedString, encodedString);
+  uint8_t backlogBufferSize = strlen(backlogBuffer);
+  uint8_t decodedStringSize = strlen(decodedString);
+  for(uint8_t i=0; i<decodedStringSize; i++){
+    decodedString
+    TODO
+  }
   uint8_t size = strlen(decodedString);
   
   for (uint8_t p=0; p<size; p++){
@@ -185,6 +194,7 @@ void BSD::readFileData(const char* encodedString){
     else if (decodedString[p]=='\r')
       continue; // ignore any \r that may be
     // From here we have something of interest.
+    backlogBuffer[pBacklog++] = decodedString[p];
     if (decodedString[p]=='='){
       status &= ~ EXPECTINGKEYWORD;
       status |= EXPECTINGVALUE;
@@ -192,16 +202,17 @@ void BSD::readFileData(const char* encodedString){
     }
     else if (decodedString[p]=='\n'){
       status = PROCESSKEYVALUEPAIR; // clears all other flags too.
+      pBacklog=0;
     }
-    //
-    // if ((int)decodedString[p]>48)
-    //   monitor_.print(decodedString[p]);
-    // else
-    //   monitor_.print("*");
-    // monitor_.print(" : ");
-    // monitor_.print((int)decodedString[p]);
-    // monitor_.print(" : ");
-    // monitor_.println(status);
+    
+    if ((int)decodedString[p]>48)
+      monitor_.print(decodedString[p]);
+    else
+      monitor_.print("*");
+    monitor_.print(" : ");
+    monitor_.print((int)decodedString[p]);
+    monitor_.print(" : ");
+    monitor_.println(status);
     
     if (status & EXPECTINGKEYWORD){
       keyword[pKeyword]=decodedString[p];
@@ -214,10 +225,10 @@ void BSD::readFileData(const char* encodedString){
     if (status & PROCESSKEYVALUEPAIR){
       keyword[++pKeyword]='\0';
       value[++pValue]='\0';
-      // monitor_.print("processing: ");
-      // monitor_.print(keyword);
-      // monitor_.print("=");
-      // monitor_.println(value);
+      monitor_.print("processing: ");
+      monitor_.print(keyword);
+      monitor_.print("=");
+      monitor_.println(value);
 
       if (strcmp(keyword, "dmin")==0)
 	dmin_ = atof(value);
@@ -238,13 +249,15 @@ void BSD::readFileData(const char* encodedString){
       monitor_.print(":");
       monitor_.print(Tcold_);
       monitor_.print(":");
-      monitor_.print;n(Twarm_);
+      monitor_.println(Twarm_);
       
       pKeyword=0;
       pValue=0;
       status = EXPECTINGKEYWORD;
     }
   }
+  monitor_.print("backlog: ");
+  monitor_.println(backlogBuffer);
 }
 
 void BSD::sendSWmessage(uint8_t index, int value){
@@ -385,7 +398,7 @@ uint8_t BSD::parseBuffer(const char *buffer){
   monitor_.print("Status : ");monitor_.println(status_);
   monitor_.println("----");
 
-  if ((status_ & ACTIVE) && (status_ & DO_SD)){
+  if ((status_ & ACTIVE) && (status_ & DO_SD) && (status_ & FILETRANSFERCOMPLETE)){
     parsePayloadSD(buffer, p0, p1);
     updateMissionParameters();
   }
