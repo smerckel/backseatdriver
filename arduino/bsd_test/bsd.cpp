@@ -224,9 +224,11 @@ void BSD::readFileData(const char* encodedString){
       else if (strcmp(keyword, "dmax")==0)
 	dmax_ = atof(value);
       else if (strcmp(keyword, "threshold")==0)
-	threshold_ = atof(value);
-      else if (strcmp(keyword, "n_profiles")==0)
-	nprofiles_ = atoi(value);
+	threshold_ = atoi(value);
+      else if (strcmp(keyword, "Tcold")==0)
+	Tcold_ = atof(value);
+      else if (strcmp(keyword, "Twarm")==0)
+	Twarm_ = atof(value);
 
       monitor_.print(dmin_);
       monitor_.print(":");
@@ -234,7 +236,9 @@ void BSD::readFileData(const char* encodedString){
       monitor_.print(":");
       monitor_.print(threshold_);
       monitor_.print(":");
-      monitor_.println(nprofiles_);
+      monitor_.print(Tcold_);
+      monitor_.print(":");
+      monitor_.print;n(Twarm_);
       
       pKeyword=0;
       pValue=0;
@@ -252,7 +256,8 @@ void BSD::sendSWmessage(uint8_t index, int value){
   computeCrc(&crc, buffer, strlen(buffer));
   sprintf(&(buffer[4]), "%d,%d*%02x\n\0", index, value, crc);
   serial_.write(buffer);
-  
+  monitor_.print("Sent: ");
+  monitor_.println(buffer);
 }
 
 void BSD::sendSWmessage(uint8_t index, float value){
@@ -266,6 +271,8 @@ void BSD::sendSWmessage(uint8_t index, float value){
   computeCrc(&crc, buffer, strlen(buffer));
   sprintf(&(buffer[4]), "%d:%s*%02x\n\0", index, floatString, crc);
   serial_.write(buffer);
+  monitor_.print("Sent: ");
+  monitor_.println(buffer);
 }
 
 void BSD::updateMissionParameters(){
@@ -383,7 +390,7 @@ uint8_t BSD::parseBuffer(const char *buffer){
     updateMissionParameters();
   }
     
-  if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) ){
+  if ((status_ & ACTIVE) && (!(status_ & CONFIGFILEREQUESTED)) && (!(status_ & FILETRANSFERCOMPLETE))){
     status_ |= CONFIGFILEREQUESTED;
     requestConfigFile();
   }

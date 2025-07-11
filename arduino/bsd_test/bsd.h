@@ -106,9 +106,9 @@ private:
   // Variables that control the flight logic. They should go into their own class someday.
   float dmin_;
   float dmax_;
-  float threshold_;
-  uint8_t nprofiles_;
-  
+  uint8_t threshold_;
+  float Twarm_;
+  float Tcold_;
 };
 
 
